@@ -1,2 +1,5 @@
 .idea
 .kiro
+__pycache__
+.venv/
+results/*.png

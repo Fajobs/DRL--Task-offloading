@@ -110,8 +110,7 @@ You don't have a virtual environment? Huh? IDIOT....... here you go:
 python main.py
 ```
 
-This will run all four experiments sequentially and save figures to `results/`.
-Expect it to take **5–15 minutes** depending on your hardware (CPU-only is
+Expect it to take **15–25 minutes** depending on your hardware (CPU-only is
 fine — no GPU required).
 
 ### What Gets Produced
@@ -169,12 +168,13 @@ All parameters live in `config.py`. Key knobs to turn:
 
 | Parameter         | Default | Effect                                                      |
 |-------------------|---------|-------------------------------------------------------------|
-| `NUM_EPOCHS`      | 200     | More epochs → better DQN but slower training                |
-| `STEPS_PER_EPOCH` | 20      | More steps → more data per epoch                            |
-| `EPSILON_DECAY`   | 0.98    | Lower → faster shift from exploration to exploitation       |
-| `LEARNING_RATE`   | 0.001   | Standard Adam LR; lower for more stable but slower learning |
-| `HIDDEN_DIM`      | 128     | Neurons per hidden layer; increase for harder problems      |
+| `NUM_EPOCHS`      | 300     | More epochs → better DQN but slower training                |
+| `STEPS_PER_EPOCH` | 30      | More steps → more data per epoch                            |
+| `EPSILON_DECAY`   | 0.97    | Lower → faster shift from exploration to exploitation       |
+| `LEARNING_RATE`   | 0.0005  | Adam LR; lower for more stable but slower learning          |
+| `HIDDEN_DIM`      | 256     | Neurons per hidden layer; increase for harder problems      |
 | `NUM_CHANNELS`    | 10      | More channels → larger action space                         |
+| `BATCH_SIZE`      | 128     | Larger batches → smoother gradient estimates                |
 
 ---
 
@@ -184,8 +184,10 @@ This is a faithful replication, but some implementation details are inferred
 since the paper doesn't provide source code:
 
 1. **Action-space discretization** — The paper describes continuous α, β but
-   uses DQN (which needs discrete actions). We discretize into 11 levels each
-   (0.0, 0.1, …, 1.0) combined with channel selection.
+   uses DQN (which needs discrete actions). We discretize into 6 levels each
+   (0.0, 0.2, 0.4, 0.6, 0.8, 1.0) combined with channel selection, giving
+   210 valid actions. Coarser than 11 levels, but this lets the DQN explore
+   the space thoroughly during training without sacrificing solution quality.
 
 2. **State normalization** — We normalize task features for neural network
    input; the exact normalization scheme isn't specified in the paper.
@@ -193,8 +195,15 @@ since the paper doesn't provide source code:
 3. **Interference model** — We use a simplified inter-EN interference model
    based on path loss from all other base stations.
 
-4. **GA gene encoding** — The paper mentions 128-bit genes and 32-bit
-   variables; we use a binary encoding with single-point crossover.
+4. **GA baseline** — The paper mentions 128-bit genes and 32-bit variables.
+   Our GA uses shorter genes (32 bits), a smaller population (30), and fewer
+   generations (50) to act as a realistic heuristic rather than a per-instance
+   oracle. In practice, GA cannot re-evolve its entire population every time
+   slot, so this reflects its real-world limitations.
+
+5. **Network architecture** — The paper mentions fully-connected layers but
+   doesn't specify exact sizes. We use three hidden layers of 256 neurons
+   each with gradient clipping (max norm 1.0) for training stability.
 
 ---
 

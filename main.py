@@ -160,7 +160,7 @@ def evaluate_all_schemes(agent, scenario, num_devices, task_density,
         results["Q-Learning"] += evaluate_qlearning(env_q, num_episodes=150)
 
         env_g = MECEnvironment(num_devices, scenario, task_density)
-        results["GA"] += evaluate_ga(env_g, pop_size=40, generations=80)
+        results["GA"] += evaluate_ga(env_g)
 
         env_d = MECEnvironment(num_devices, scenario, task_density)
         results["DQN"] += evaluate_dqn(env_d, agent)
@@ -229,7 +229,7 @@ def main():
         print(f"\n  --- Scenario {sc} ---")
         env_sc = MECEnvironment(num_devices, scenario=sc, task_density=30)
         agent_sc, _, _ = train_dqn(
-            env_sc, num_epochs=150, steps_per_epoch=15, verbose=True,
+            env_sc, num_epochs=250, steps_per_epoch=25, verbose=True,
         )
         sc_res = evaluate_all_schemes(
             agent_sc, scenario=sc, num_devices=num_devices,
@@ -253,7 +253,7 @@ def main():
         print(f"\n  --- Density = {density} ---")
         env_d = MECEnvironment(density, scenario="II", task_density=density)
         agent_d, _, _ = train_dqn(
-            env_d, num_epochs=150, steps_per_epoch=15, verbose=True,
+            env_d, num_epochs=250, steps_per_epoch=25, verbose=True,
         )
         d_res = evaluate_all_schemes(
             agent_d, scenario="II", num_devices=density,

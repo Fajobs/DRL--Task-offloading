@@ -100,19 +100,19 @@ CPU_CYCLES_PER_BIT = {
 # 5. DQN HYPER-PARAMETERS  (Section V of the paper)
 # ═══════════════════════════════════════════════════════════════════════
 
-LEARNING_RATE = 1e-3           # Adam optimizer learning rate
-DISCOUNT_FACTOR = 0.9          # γ (lambda in the paper) — how much future rewards matter
+LEARNING_RATE = 5e-4           # Adam optimizer learning rate
+DISCOUNT_FACTOR = 0.95         # γ (lambda in the paper) — how much future rewards matter
 EPSILON_START = 1.0            # Initial exploration rate (100 % random)
 EPSILON_END = 0.01             # Minimum exploration rate
-EPSILON_DECAY = 0.98           # Multiply epsilon by this after every epoch
-BATCH_SIZE = 64                # Mini-batch size sampled from replay memory
-MEMORY_SIZE = 10000            # Maximum transitions stored in replay buffer
-TARGET_UPDATE_FREQ = 10        # Copy eval-net weights to target-net every k epochs
-HIDDEN_DIM = 128               # Neurons per hidden layer in the Q-network
+EPSILON_DECAY = 0.97           # Multiply epsilon by this after every epoch — aggressive decay
+BATCH_SIZE = 128               # Mini-batch size sampled from replay memory
+MEMORY_SIZE = 20000            # Maximum transitions stored in replay buffer
+TARGET_UPDATE_FREQ = 5         # Copy eval-net weights to target-net every k epochs
+HIDDEN_DIM = 256               # Neurons per hidden layer in the Q-network
 
 # Training budget
-NUM_EPOCHS = 200               # Number of training epochs
-STEPS_PER_EPOCH = 20           # Episodes (full environment resets) per epoch
+NUM_EPOCHS = 300               # Number of training epochs
+STEPS_PER_EPOCH = 30           # Episodes (full environment resets) per epoch
 
 # ═══════════════════════════════════════════════════════════════════════
 # 6. ACTION-SPACE DISCRETISATION
@@ -122,6 +122,6 @@ STEPS_PER_EPOCH = 20           # Episodes (full environment resets) per epoch
 #   (alpha index, beta index, channel index)
 # where alpha = fraction processed locally, beta = fraction at the EN,
 # and gamma = 1 - alpha - beta = fraction at the cloud.
-# We discretize alpha and beta into 11 levels each (0.0, 0.1, …, 1.0).
-ALPHA_LEVELS = [round(i * 0.1, 1) for i in range(11)]
-BETA_LEVELS  = [round(i * 0.1, 1) for i in range(11)]
+# We discretize alpha and beta into 6 levels each (0.0, 0.2, 0.4, 0.6, 0.8, 1.0).
+ALPHA_LEVELS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+BETA_LEVELS  = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]

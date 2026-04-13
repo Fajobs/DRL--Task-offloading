@@ -35,16 +35,17 @@ from config import (
 
 class QNetwork(nn.Module):
     """
-    A simple fully-connected network that maps a state vector to
+    A fully-connected network that maps a state vector to
     Q-values for every possible discrete action.
 
     Architecture:
         Input(state_dim) → Linear(hidden) → ReLU
                          → Linear(hidden) → ReLU
+                         → Linear(hidden) → ReLU
                          → Linear(action_dim)   ← one output per action
 
-    The paper mentions K fully-connected layers; we use K = 3 (two hidden
-    + one output) with 128 neurons per hidden layer by default.
+    The paper mentions K fully-connected layers; we use K = 4 (three hidden
+    + one output) with 256 neurons per hidden layer by default.
     """
 
     def __init__(self, state_dim: int, action_dim: int,
@@ -52,6 +53,8 @@ class QNetwork(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
             nn.ReLU(),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
@@ -205,6 +208,7 @@ class DQNAgent:
         loss = self.loss_fn(q_values, target)
         self.optimizer.zero_grad()
         loss.backward()
+        nn.utils.clip_grad_norm_(self.eval_net.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         return loss.item()

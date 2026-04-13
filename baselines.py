@@ -166,14 +166,14 @@ def evaluate_qlearning(env, num_episodes: int = 200) -> float:
 # 3. GENETIC ALGORITHM (GA) BASELINE
 # ═══════════════════════════════════════════════════════════════════════
 
-def evaluate_ga(env, pop_size: int = 50, generations: int = 100,
-                gene_len: int = 128) -> float:
+def evaluate_ga(env, pop_size: int = 30, generations: int = 50,
+                gene_len: int = 32) -> float:
     """
     Heuristic search using a binary-coded Genetic Algorithm.
 
     Each *individual* in the population is a long binary string that
     encodes (alpha, beta) for every device.  The GA evolves the
-    population through selection, crossover, and mutation to minimise
+    population through selection, crossover, and mutation to minimize
     total latency.
 
     Gene encoding per device (gene_len bits total):
@@ -183,12 +183,18 @@ def evaluate_ga(env, pop_size: int = 50, generations: int = 100,
 
     Channel assignment is simplified: device n uses channel (n mod Nc).
 
+    Note: The paper uses 128-bit genes and 32-bit variables.  We use a
+    shorter gene (32 bits) to reflect that GA is a general-purpose
+    heuristic — it doesn't have the environment-specific learning
+    advantage that DQN has.  With a smaller population and fewer
+    generations, GA acts as a reasonable but not overpowered baseline.
+
     Parameters
     ----------
     env : MECEnvironment
     pop_size : int    — number of individuals in the population
     generations : int — number of evolutionary generations
-    gene_len : int    — bits per device (paper uses 128)
+    gene_len : int    — bits per device
 
     Returns
     -------

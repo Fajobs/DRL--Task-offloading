@@ -1,5 +1,6 @@
 .idea
 .kiro
+.vscode
 __pycache__
 .venv/
 results/*.png

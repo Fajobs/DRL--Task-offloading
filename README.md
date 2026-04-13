@@ -98,6 +98,14 @@ pip install torch numpy matplotlib
 
 ### Running the Experiments
 
+Assuming you're using a virtual environment — which you are, because you aren't an idiot, right? See [Prerequisites](#prerequisites).
+
+```bash
+.venv\Scripts\python.exe main.py
+```
+
+You don't have a virtual environment? Huh? IDIOT....... here you go:
+
 ```bash
 python main.py
 ```

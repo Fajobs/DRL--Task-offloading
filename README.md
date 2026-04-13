@@ -6,7 +6,7 @@ A Python replication of the experiments from:
 > *Deep-Reinforcement-Learning-Based Task Offloading and Resource Allocation
 > in Mobile Edge Computing Network With Heterogeneous Tasks.*
 > IEEE Internet of Things Journal, 12(8), 10899–10906.
-> [DOI: 10.1109/JIOT.2024.3514108](Deep-Reinforcement-Learning-Based_Task_Offloading_and_Resource_Allocation_in_Mobile_Edge_Computing_Network_With_Heterogeneous_Tasks.pdf)
+> [Full Paper](paper/Deep-Reinforcement-Learning-Based_Task_Offloading_and_Resource_Allocation_in_Mobile_Edge_Computing_Network_With_Heterogeneous_Tasks.pdf)
 
 ---
 

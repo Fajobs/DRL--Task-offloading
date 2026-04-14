@@ -228,7 +228,7 @@ def main():
         print(f"\n  --- Scenario {sc} ---")
         env_sc = MECEnvironment(num_devices, scenario=sc, task_density=30)
         agent_sc, _, _ = train_dqn(
-            env_sc, num_epochs=150, steps_per_epoch=30, verbose=True,
+            env_sc, num_epochs=200, steps_per_epoch=30, verbose=True,
         )
         sc_res = evaluate_all_schemes(
             agent_sc, scenario=sc, num_devices=num_devices,
@@ -252,7 +252,7 @@ def main():
         print(f"\n  --- Density = {density} ---")
         env_d = MECEnvironment(density, scenario="II", task_density=density)
         agent_d, _, _ = train_dqn(
-            env_d, num_epochs=150, steps_per_epoch=30, verbose=True,
+            env_d, num_epochs=200, steps_per_epoch=30, verbose=True,
         )
         d_res = evaluate_all_schemes(
             agent_d, scenario="II", num_devices=density,

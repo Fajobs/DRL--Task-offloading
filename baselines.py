@@ -270,14 +270,20 @@ def evaluate_ga(env, pop_size: int = 30, generations: int = 50,
         population = new_pop
 
     # ── Extract the best solution ────────────────────────────────────
+    # Evaluate on a FRESH environment instance (new device positions AND
+    # new tasks).  This mirrors how DQN is evaluated: on a completely
+    # unseen network layout.
+    from environment import MECEnvironment as _MEC
+
     best = max(population, key=fitness)
     decisions = decode(best)
 
-    env.reset()
+    eval_env = _MEC(num_d, env.scenario, env.task_density)
+    eval_env.reset()
     total_latency = 0.0
     for n in range(num_d):
         a, b, g = decisions[n]
         ch = n % NUM_CHANNELS
-        total_latency += env.compute_latency_for_action(n, a, b, g, ch)
+        total_latency += eval_env.compute_latency_for_action(n, a, b, g, ch)
 
     return total_latency / num_d

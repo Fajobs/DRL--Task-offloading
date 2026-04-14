@@ -101,7 +101,7 @@ CPU_CYCLES_PER_BIT = {
 # ═══════════════════════════════════════════════════════════════════════
 
 LEARNING_RATE = 5e-4           # Adam optimizer learning rate
-DISCOUNT_FACTOR = 0.95         # γ (lambda in the paper) — how much future rewards matter
+DISCOUNT_FACTOR = 0.95         # λ in the paper — how much future rewards matter
 EPSILON_START = 1.0            # Initial exploration rate (100 % random)
 EPSILON_END = 0.01             # Minimum exploration rate
 EPSILON_DECAY = 0.97           # Multiply epsilon by this after every epoch — aggressive decay
@@ -123,5 +123,6 @@ STEPS_PER_EPOCH = 30           # Episodes (full environment resets) per epoch
 # where alpha = fraction processed locally, beta = fraction at the EN,
 # and gamma = 1 - alpha - beta = fraction at the cloud.
 # We discretize alpha and beta into 6 levels each (0.0, 0.2, 0.4, 0.6, 0.8, 1.0).
+# This gives 21 valid (α, β) pairs where α + β ≤ 1, times 10 channels = 210 actions.
 ALPHA_LEVELS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 BETA_LEVELS  = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]

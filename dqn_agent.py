@@ -9,7 +9,7 @@ This module implements the DQN algorithm described in Section V of the paper:
 
 Key classes
 -----------
-QNetwork      — the neural network itself (two hidden layers)
+QNetwork      — the neural network itself (three hidden layers)
 ReplayMemory  — fixed-size FIFO buffer of (s, a, r, s', done) tuples
 DQNAgent      — ties everything together: action selection, training, etc.
 """
@@ -77,7 +77,7 @@ class ReplayMemory:
 
     During training, random mini-batches are sampled from this buffer.
     Random sampling breaks the temporal correlation between consecutive
-    experiences, which stabilises and accelerates learning.
+    experiences, which stabilizes and accelerates learning.
     """
 
     def __init__(self, capacity: int = MEMORY_SIZE):
@@ -123,7 +123,7 @@ class DQNAgent:
     4. Learn:    loss = agent.update()          — one gradient step
     5. Repeat 2-4 for many steps.
     6. Periodically call agent.update_target()  — sync target net
-    7. After each epoch call agent.decay_epsilon()
+    7. After each epoch call agent.decay_epsilon() — decays ε and steps LR scheduler
     """
 
     def __init__(self, state_dim: int, num_actions: int,
@@ -141,6 +141,9 @@ class DQNAgent:
         self.target_net.eval()   # target net is never trained directly
 
         self.optimizer = optim.Adam(self.eval_net.parameters(), lr=LEARNING_RATE)
+        self.scheduler = optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=100, gamma=0.5
+        )
         self.memory    = ReplayMemory(MEMORY_SIZE)
         self.loss_fn   = nn.MSELoss()
 
@@ -179,6 +182,10 @@ class DQNAgent:
         Loss (Eq. 21):
             L(θ) = E[ (r + γ · max_a' Q_target(s', a'; θ') − Q(s, a; θ))² ]
 
+        Rewards are normalized within each mini-batch (zero mean, unit
+        variance) to stabilize training across different task scenarios
+        where raw latencies can differ by orders of magnitude.
+
         Returns the scalar loss value (useful for plotting convergence).
         """
         if len(self.memory) < BATCH_SIZE:
@@ -194,6 +201,12 @@ class DQNAgent:
         rewards_t     = torch.FloatTensor(rewards).to(self.device)
         next_states_t = torch.FloatTensor(next_states).to(self.device)
         dones_t       = torch.FloatTensor(dones).to(self.device)
+
+        # Normalize rewards within the batch to stabilize learning.
+        # Without this, Scenario IV rewards (~-25) dwarf Scenario I (~-0.5),
+        # causing wildly different loss magnitudes and unstable gradients.
+        reward_std = rewards_t.std() + 1e-8
+        rewards_t = (rewards_t - rewards_t.mean()) / reward_std
 
         # Q(s, a; θ) for the actions that were actually taken
         q_values = self.eval_net(states_t) \
@@ -228,5 +241,7 @@ class DQNAgent:
         """
         Shrink ε after each epoch so the agent gradually shifts from
         exploration (random actions) to exploitation (learned policy).
+        Also steps the learning rate scheduler for fine-tuning.
         """
         self.epsilon = max(EPSILON_END, self.epsilon * EPSILON_DECAY)
+        self.scheduler.step()

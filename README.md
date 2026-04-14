@@ -59,12 +59,14 @@ Genetic Algorithm (GA).
   `reset()` / `step()` interface.
 
 - **`dqn_agent.py`** — The DQN algorithm from Section V. Contains the
-  Q-network (two hidden layers), experience replay buffer, ε-greedy action
-  selection, MSE loss training, and target network synchronization.
+  Q-network (three hidden layers of 256 neurons), experience replay buffer,
+  ε-greedy action selection, MSE loss training with batch reward normalization,
+  gradient clipping, a learning rate scheduler, and target network
+  synchronization.
 
 - **`baselines.py`** — Three comparison algorithms:
   - *Random* — uniformly random offloading ratios and channel
-  - *Q-Learning* — tabular RL with discretised states (16 bins)
+  - *Q-Learning* — tabular RL with discretized states (16 bins)
   - *GA* — binary-coded genetic algorithm with crossover and mutation
 
 - **`plotting.py`** — Generates the five figures from the paper's evaluation
@@ -87,8 +89,10 @@ Genetic Algorithm (GA).
 ```bash
 # Create and activate a virtual environment
 python -m venv .venv
+
 # Windows:
 .venv\Scripts\activate
+
 # Linux/macOS:
 source .venv/bin/activate
 

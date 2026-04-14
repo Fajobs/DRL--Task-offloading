@@ -202,7 +202,7 @@ def evaluate_ga(env, pop_size: int = 30, generations: int = 50,
     """
     env.reset()
     num_d = env.num_devices
-    bits_per_var = gene_len // 2          # 64 bits for alpha, 64 for beta
+    bits_per_var = gene_len // 2          # 16 bits for alpha, 16 for beta
     total_bits   = num_d * gene_len       # total genome length
 
     # ── Decode a binary genome into per-device decisions ─────────────
@@ -272,6 +272,8 @@ def evaluate_ga(env, pop_size: int = 30, generations: int = 50,
     # ── Extract the best solution ────────────────────────────────────
     best = max(population, key=fitness)
     decisions = decode(best)
+
+    env.reset()
     total_latency = 0.0
     for n in range(num_d):
         a, b, g = decisions[n]

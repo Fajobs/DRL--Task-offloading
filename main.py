@@ -51,7 +51,9 @@ def train_dqn(env: MECEnvironment,
 
     Each "epoch" runs `steps_per_epoch` full episodes.  In each episode
     the environment is reset (new random tasks), and the agent makes one
-    decision per device sequentially.
+    decision per device sequentially.  All experiences from the episode
+    are stored first, then a single batch update is performed.  This is
+    much faster than updating after every device action.
 
     Parameters
     ----------
@@ -80,21 +82,18 @@ def train_dqn(env: MECEnvironment,
             env.reset()
             episode_reward = 0.0
 
-            # Each device takes one action in sequence
+            # Collect experiences for the full episode first
             for n in range(env.num_devices):
                 state  = env._get_state(n)
                 action = agent.select_action(state)
-
                 next_state, reward, done, _ = env.step(n, action)
-
-                # Store the experience and learn from a mini-batch
                 agent.store(state, action, reward, next_state, done)
-                loss = agent.update()
-
-                epoch_loss += loss
-                loss_count += 1
                 episode_reward += reward
 
+            # One batch update per episode (not per device)
+            loss = agent.update()
+            epoch_loss += loss
+            loss_count += 1
             epoch_reward += episode_reward
 
         # After each epoch: decay exploration and periodically sync target net
@@ -229,7 +228,7 @@ def main():
         print(f"\n  --- Scenario {sc} ---")
         env_sc = MECEnvironment(num_devices, scenario=sc, task_density=30)
         agent_sc, _, _ = train_dqn(
-            env_sc, num_epochs=250, steps_per_epoch=25, verbose=True,
+            env_sc, num_epochs=150, steps_per_epoch=30, verbose=True,
         )
         sc_res = evaluate_all_schemes(
             agent_sc, scenario=sc, num_devices=num_devices,
@@ -253,7 +252,7 @@ def main():
         print(f"\n  --- Density = {density} ---")
         env_d = MECEnvironment(density, scenario="II", task_density=density)
         agent_d, _, _ = train_dqn(
-            env_d, num_epochs=250, steps_per_epoch=25, verbose=True,
+            env_d, num_epochs=150, steps_per_epoch=30, verbose=True,
         )
         d_res = evaluate_all_schemes(
             agent_d, scenario="II", num_devices=density,

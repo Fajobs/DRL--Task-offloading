@@ -9,7 +9,7 @@ This module implements the DQN algorithm described in Section V of the paper:
 
 Key classes
 -----------
-QNetwork      — the neural network itself (three hidden layers)
+QNetwork      — the neural network itself (two hidden layers)
 ReplayMemory  — fixed-size FIFO buffer of (s, a, r, s', done) tuples
 DQNAgent      — ties everything together: action selection, training, etc.
 """
@@ -41,11 +41,10 @@ class QNetwork(nn.Module):
     Architecture:
         Input(state_dim) → Linear(hidden) → ReLU
                          → Linear(hidden) → ReLU
-                         → Linear(hidden) → ReLU
                          → Linear(action_dim)   ← one output per action
 
-    The paper mentions K fully-connected layers; we use K = 4 (three hidden
-    + one output) with 256 neurons per hidden layer by default.
+    The paper mentions K fully-connected layers; we use K = 3 (two hidden
+    + one output) with 128 neurons per hidden layer.
     """
 
     def __init__(self, state_dim: int, action_dim: int,
@@ -53,8 +52,6 @@ class QNetwork(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim, hidden),
-            nn.ReLU(),
-            nn.Linear(hidden, hidden),
             nn.ReLU(),
             nn.Linear(hidden, hidden),
             nn.ReLU(),

@@ -100,18 +100,18 @@ CPU_CYCLES_PER_BIT = {
 # 5. DQN HYPER-PARAMETERS  (Section V of the paper)
 # ═══════════════════════════════════════════════════════════════════════
 
-LEARNING_RATE = 5e-4           # Adam optimizer learning rate
+LEARNING_RATE = 1e-3           # Adam optimizer learning rate
 DISCOUNT_FACTOR = 0.95         # λ in the paper — how much future rewards matter
 EPSILON_START = 1.0            # Initial exploration rate (100 % random)
 EPSILON_END = 0.01             # Minimum exploration rate
 EPSILON_DECAY = 0.97           # Multiply epsilon by this after every epoch — aggressive decay
-BATCH_SIZE = 128               # Mini-batch size sampled from replay memory
+BATCH_SIZE = 64                # Mini-batch size sampled from replay memory
 MEMORY_SIZE = 20000            # Maximum transitions stored in replay buffer
 TARGET_UPDATE_FREQ = 5         # Copy eval-net weights to target-net every k epochs
-HIDDEN_DIM = 256               # Neurons per hidden layer in the Q-network
+HIDDEN_DIM = 128               # Neurons per hidden layer in the Q-network
 
 # Training budget
-NUM_EPOCHS = 300               # Number of training epochs
+NUM_EPOCHS = 200               # Number of training epochs
 STEPS_PER_EPOCH = 30           # Episodes (full environment resets) per epoch
 
 # ═══════════════════════════════════════════════════════════════════════

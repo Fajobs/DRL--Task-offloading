@@ -1,6 +1,6 @@
 # DRL-Based Task Offloading in Mobile Edge Computing
 
-A Python replication of the experiments from:
+A notebook-based replication of the experiments from:
 
 > **Jiang, T., Chen, Z., Zhao, Z., Feng, M., & Zhou, J.** (2025).
 > *Deep-Reinforcement-Learning-Based Task Offloading and Resource Allocation
@@ -36,44 +36,14 @@ Genetic Algorithm (GA).
 ## Project Structure
 
 ```
-├── config.py          # All simulation parameters and DQN hyperparameters
-├── environment.py     # MEC network simulation (devices, ENs, cloud, channels)
-├── dqn_agent.py       # DQN neural network, replay memory, and training agent
-├── baselines.py       # Random, Q-Learning, and GA baseline algorithms
-├── plotting.py        # Matplotlib figure generation (Figs. 3-7)
-├── main.py            # Experiment runner — the entry point
-├── results/           # Output folder for generated PNG figures
-└── README.md          # This file
+├── DRL_Task_Offloading.ipynb   # Complete self-contained implementation
+├── paper/                      # Reference paper PDF
+├── results/                    # Optional output directory
+└── README.md
 ```
 
-### Module Responsibilities
-
-- **`config.py`** — Single source of truth for every tunable number: network
-  layout, wireless parameters, computing capacities, task definitions, DQN
-  hyperparameters, and action-space discretization. Change a value here and it
-  propagates everywhere.
-
-- **`environment.py`** — Implements the MEC system model from Section III of
-  the paper. Handles device placement, EN association, SINR calculation,
-  path-loss model, and the latency equations (Eqs. 5–13). Exposes a Gym-like
-  `reset()` / `step()` interface.
-
-- **`dqn_agent.py`** — The DQN algorithm from Section V. Contains the
-  Q-network (two hidden layers of 128 neurons), experience replay buffer,
-  ε-greedy action selection, MSE loss training with batch reward normalization,
-  gradient clipping, a learning rate scheduler, and target network
-  synchronization.
-
-- **`baselines.py`** — Three comparison algorithms:
-  - *Random* — uniformly random offloading ratios and channel
-  - *Q-Learning* — tabular RL with discretized states (16 bins)
-  - *GA* — binary-coded genetic algorithm with crossover and mutation
-
-- **`plotting.py`** — Generates the five figures from the paper's evaluation
-  section (Figs. 3–7) and saves them as PNGs.
-
-- **`main.py`** — Orchestrates four experiments, calls training and evaluation
-  functions, and produces all plots.
+Everything needed to run experiments (environment, DQN, baselines, plotting,
+training loop) is contained in **`DRL_Task_Offloading.ipynb`**.
 
 ---
 
@@ -82,132 +52,61 @@ Genetic Algorithm (GA).
 ### Prerequisites
 
 - Python 3.10+
-- A virtual environment is recommended
+- Jupyter Notebook or JupyterLab
 
 ### Installation
 
 ```bash
-# Create and activate a virtual environment
 python -m venv .venv
 
-# Windows:
+# Windows
 .venv\Scripts\activate
 
-# Linux/macOS:
+# Linux/macOS
 source .venv/bin/activate
 
-# Install dependencies
-pip install torch numpy matplotlib
+pip install jupyter torch numpy matplotlib
 ```
 
-### Running the Experiments
-
-Assuming you're using a virtual environment — which you are, because you aren't an idiot, right? See [Prerequisites](#prerequisites).
+### Run the Notebook
 
 ```bash
-.venv\Scripts\python.exe main.py
+jupyter notebook DRL_Task_Offloading.ipynb
 ```
 
-You don't have a virtual environment? Huh? IDIOT....... here you go:
+Or with JupyterLab:
 
 ```bash
-python main.py
+jupyter lab DRL_Task_Offloading.ipynb
 ```
 
-Expect it to take **10–20 minutes** depending on your hardware (CPU-only is
-fine — no GPU required).
-
-### What Gets Produced
-
-| File                                   | Description                                      |
-|----------------------------------------|--------------------------------------------------|
-| `results/fig3_loss_convergence.png`    | DQN training loss over epochs                    |
-| `results/fig4_reward_convergence.png`  | DQN reward (negative latency) over epochs        |
-| `results/fig5_scheme_comparison.png`   | Bar chart: latency of all 4 schemes              |
-| `results/fig6_scenario_comparison.png` | Grouped bars: latency across task-size scenarios |
-| `results/fig7_density_comparison.png`  | Line plot: latency vs. task density              |
+Run all cells from top to bottom to reproduce the full pipeline.
 
 ---
 
-## Key Concepts Explained
+## What Gets Produced
 
-### The MEC System
-
-Imagine a city block with 5 cell towers (Edge Nodes), each equipped with a
-small server. Dozens of IoT devices (phones, sensors, drones) are scattered
-around. Each device generates a task — maybe a photo to classify, audio to
-transcribe, or video to analyze.
-
-Each device must decide: *"Should I process this myself, send it to the
-nearest tower, or send it all the way to the cloud?"* The answer depends on
-the task size, the device's CPU, how busy the tower is, and how good the
-wireless channel is right now.
-
-### Why DQN?
-
-This is a hard optimization problem (NP-hard, technically) because:
-- The wireless channel quality changes over time
-- Different task types need different amounts of data and computation
-- Devices compete for limited channels and edge server CPU
-
-Traditional optimization can't solve this in real time. DQN learns a policy
-by interacting with the environment thousands of times, storing experiences,
-and gradually improving its decisions — much like how a human gets better at
-a game through practice.
-
-### The Three Baselines
-
-| Baseline       | How it works                                       | Expected performance                                   |
-|----------------|----------------------------------------------------|--------------------------------------------------------|
-| **Random**     | Rolls dice for every decision                      | Worst — no intelligence                                |
-| **Q-Learning** | Builds a lookup table of state→action values       | Better, but struggles with large state spaces          |
-| **GA**         | Evolves a population of solutions over generations | Good, but slow and not adaptive to real-time changes   |
-| **DQN**        | Neural network learns Q-values from experience     | Best — handles high-dimensional states and generalises |
+- Figures are displayed inline in the notebook output.
+- Depending on notebook settings, outputs may also be persisted in notebook state.
 
 ---
 
 ## Tuning
 
-All parameters live in `config.py`. Key knobs to turn:
+All key hyperparameters are defined in the **Configuration** section of
+`DRL_Task_Offloading.ipynb`.
+
+Common knobs:
 
 | Parameter         | Default | Effect                                                      |
 |-------------------|---------|-------------------------------------------------------------|
-| `NUM_EPOCHS`      | 200     | More epochs → better DQN but slower training                |
-| `STEPS_PER_EPOCH` | 30      | More steps → more data per epoch                            |
-| `EPSILON_DECAY`   | 0.97    | Lower → faster shift from exploration to exploitation       |
+| `NUM_EPOCHS`      | 200     | More epochs -> better DQN but slower training               |
+| `STEPS_PER_EPOCH` | 30      | More steps -> more data per epoch                           |
+| `EPSILON_DECAY`   | 0.97    | Lower -> faster shift from exploration to exploitation      |
 | `LEARNING_RATE`   | 0.001   | Adam LR; lower for more stable but slower learning          |
 | `HIDDEN_DIM`      | 128     | Neurons per hidden layer; increase for harder problems      |
-| `NUM_CHANNELS`    | 10      | More channels → larger action space                         |
-| `BATCH_SIZE`      | 64      | Larger batches → smoother gradient estimates                |
-
----
-
-## Differences from the Paper
-
-This is a faithful replication, but some implementation details are inferred
-since the paper doesn't provide source code:
-
-1. **Action-space discretization** — The paper describes continuous α, β but
-   uses DQN (which needs discrete actions). We discretize into 6 levels each
-   (0.0, 0.2, 0.4, 0.6, 0.8, 1.0) combined with channel selection, giving
-   210 valid actions. Coarser than 11 levels, but this lets the DQN explore
-   the space thoroughly during training without sacrificing solution quality.
-
-2. **State normalization** — We normalize task features for neural network
-   input; the exact normalization scheme isn't specified in the paper.
-
-3. **Interference model** — We use a simplified inter-EN interference model
-   based on path loss from all other base stations.
-
-4. **GA baseline** — The paper mentions 128-bit genes and 32-bit variables.
-   Our GA uses shorter genes (32 bits), a smaller population (30), and fewer
-   generations (50) to act as a realistic heuristic rather than a per-instance
-   oracle. In practice, GA cannot re-evolve its entire population every time
-   slot, so this reflects its real-world limitations.
-
-5. **Network architecture** — The paper mentions fully-connected layers but
-   doesn't specify exact sizes. We use two hidden layers of 128 neurons
-   each with gradient clipping (max norm 1.0) for training stability.
+| `NUM_CHANNELS`    | 10      | More channels -> larger action space                        |
+| `BATCH_SIZE`      | 64      | Larger batches -> smoother gradient estimates               |
 
 ---
 

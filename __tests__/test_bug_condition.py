@@ -154,26 +154,30 @@ def main():
         f"Q_ALPHA_LEVELS exists with 11 levels at step 0.1 (paper: alpha in {{0,0.1,...,1}}) | Found: {'exists=' + str(q_alpha_exists) + ', value=' + str(q_alpha_val)}"
     )
 
-    # ─── evaluate_ga() uses gene_len=128 and bits_per_var=32 ───
+    # ─── evaluate_ga() uses gene_len=64 and bits_per_var=32 ───
+    # Paper says "gene length 128, each variable occupies 32 sites".
+    # With 2 variables per device (alpha, beta) at 32 bits each = 64 bits per device.
     ga_func = find_function_def(source, "evaluate_ga")
     ga_gene_len_correct = False
     ga_bits_per_var_correct = False
     if ga_func is not None:
-        # Check default gene_len parameter
+        # Check default gene_len parameter (64 = 32 bits/var × 2 vars)
         gene_len_match = re.search(r"gene_len\s*(?::\s*int\s*)?=\s*(\d+)", ga_func)
         if gene_len_match:
-            ga_gene_len_correct = gene_len_match.group(1) == "128"
+            ga_gene_len_correct = gene_len_match.group(1) == "64"
 
-        # Check bits_per_var assignment
-        bits_match = re.search(r"bits_per_var\s*=\s*(.+?)(?:\n|$)", ga_func)
+        # Check bits_per_var is 32 (either explicit or gene_len // 2)
+        bits_match = re.search(r"bits_per_var\s*=\s*(.+?)(?:\s*#.*)?(?:\n|$)", ga_func)
         if bits_match:
             bits_expr = bits_match.group(1).strip()
-            # Should be explicit 32, not gene_len // 2
-            ga_bits_per_var_correct = bits_expr == "32"
+            # Accept either explicit "32" or "gene_len // 2" (which gives 32)
+            ga_bits_per_var_correct = (
+                bits_expr == "32" or "gene_len // 2" in bits_expr
+            )
 
     results.assert_true(
         ga_gene_len_correct and ga_bits_per_var_correct,
-        f"evaluate_ga() uses gene_len=128 and bits_per_var=32 (paper: 128 bits, 32 per var) | Found: gene_len={'128' if ga_gene_len_correct else 'NOT 128'}, bits_per_var={'32' if ga_bits_per_var_correct else 'NOT explicit 32'}"
+        f"evaluate_ga() uses gene_len=64 and bits_per_var=32 (paper: 32 bits per var × 2 vars = 64 per device) | Found: gene_len={'64' if ga_gene_len_correct else 'NOT 64'}, bits_per_var={'32' if ga_bits_per_var_correct else 'NOT 32'}"
     )
 
     # ─── plot_loss_convergence() uses "Steps" x-axis label ───

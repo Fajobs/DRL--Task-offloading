@@ -1,5 +1,6 @@
 .idea
 .kiro
 .vscode
+.junie
 __pycache__
 .venv/

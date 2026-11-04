@@ -85,8 +85,34 @@ A copy of the main notebook that implements the supervisor's whiteboard model (`
 - **Objective:** minimise Σ (Tₙ + w_E·Eₙ), with w_E = 1 (T in ms, E in mJ). Local CPU frequency f_L (≤ 1 GHz) and transmit power Pₙ (≤ 23 dBm) are new decision variables.
 - **Energy:** E_comp = K·f_L²·α·d·φ (K = 1e-27) and E_off = P·(β+γ)·d/R(P), where the rate R depends on the transmit power.
 - **Baseline DQN** (original, latency-only) vs **Enhanced DQN** (chooses α, f_L and P; 336 actions). Random, GA and Q-learning also choose f_L and P.
-- **Result is a trade-off, not a double win.** Both DQNs share the same limits, and the baseline is scored at the lowest possible latency, so the Enhanced DQN cuts energy sharply (≈2.3 → ≈0.5 mJ) at a small latency cost (≈2.1 → ≈2.5 ms). Fig. C sweeps w_E to show the full latency–energy curve.
 - **Figures:** A (Baseline vs Enhanced), B (Fig 5 + energy), C (w_E trade-off), 6 and 7 (sweeps with energy panels). The DQN is retrained 11 times, so expect a longer runtime than the original.
+
+### Results
+**Fig. A: Baseline vs Enhanced DQN (Scenario II).** The result is a trade-off, not a double win. Both DQNs share the same limits, and the baseline is scored at the lowest possible latency, so the Enhanced DQN cuts energy by 79% at a 20% latency cost.
+
+| | Latency | Energy | Cost (T+E) |
+|---|---|---|---|
+| Baseline DQN | 2.13 ms | 2.35 mJ | 4.47 |
+| Enhanced DQN | 2.55 ms | 0.50 mJ | 3.06 |
+
+**Fig. C: energy-weight sweep.** w_E = 0 → 2.15 ms / 2.38 mJ (the same as the baseline); 0.2 → 2.27 / 1.40; 0.5 → 2.45 / 0.79; 1.0 → 2.65 / 0.52; 2.0 → 2.94 / 0.32. A small w_E (≈0.2) already removes about 40% of the energy for a latency increase of about 5%.
+
+**Fig. B: schemes under the new constraints (Scenario II, density 30).**
+
+| Scheme | Latency | Energy | Cost |
+|---|---|---|---|
+| Random | 23.73 ms | 3.79 mJ | 27.52 |
+| GA | 11.92 ms | 5.54 mJ | 17.46 |
+| Q-learning | 9.12 ms | 5.38 mJ | 14.50 |
+| Enhanced DQN | 2.64 ms | 0.52 mJ | 3.16 |
+
+- **Figs. 6–7:** Enhanced DQN < Q-learning < GA < Random on cost at every scenario and density. Latency and energy both rise with task size and density.
+- **Random uses less energy than GA and Q-learning.** It often picks a low CPU frequency (energy ∝ f_L²), so it saves energy by being very slow. Its cost is still the worst.
+- **Random's latency (≈23 ms vs ≈14 ms in the latency-only notebook)** is higher because it can now choose CPU speeds as low as 0.25 GHz.
+
+### Extension-specific implementation notes
+- **Q-learning** (264 actions) is averaged over 3 training runs. Its update uses a running average for the first visits (`lr = max(0.1, 1/n)`) and evaluates only actions it has tried. With a constant learning rate from Q = 0, rarely tried actions looked about 10× cheaper than they are, and Q-learning performed worse than GA.
+- **Random and GA** pick f_L and P from the DQN's discrete levels (GA: the upper two levels). GA is evaluated on 500 tasks everywhere.
 
 ## Running the Notebook
 Requirements: `numpy`, `torch`, `matplotlib`

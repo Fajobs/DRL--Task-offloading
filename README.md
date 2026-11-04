@@ -80,35 +80,52 @@ More fundamentally, the paper's results show a **5x gap between DQN (~2ms) and G
 - ~15% optimization by DQN across densities
 
 ## Energy-Aware Extension (`drl_task_offloading_energy.ipynb`)
-A copy of the main notebook that implements the supervisor's whiteboard model (`paper/Board_Equations_New.docx`). The original notebook and its results are unchanged.
+A copy of the main notebook that implements the energy-aware model (`paper/Board_Equations_New.docx`). The original notebook and its results are unchanged.
 
-- **Objective:** minimise Σ (Tₙ + w_E·Eₙ), with w_E = 1 (T in ms, E in mJ). Local CPU frequency f_L (≤ 1 GHz) and transmit power Pₙ (≤ 23 dBm) are new decision variables.
-- **Energy:** E_comp = K·f_L²·α·d·φ (K = 1e-27) and E_off = P·(β+γ)·d/R(P), where the rate R depends on the transmit power.
-- **Baseline DQN** (original, latency-only) vs **Enhanced DQN** (chooses α, f_L and P; 336 actions). Random, GA and Q-learning also choose f_L and P.
-- **Figures:** A (Baseline vs Enhanced), B (Fig 5 + energy), C (w_E trade-off), 6 and 7 (sweeps with energy panels). The DQN is retrained 11 times, so expect a longer runtime than the original.
+- **Objective:** minimise Σ (Tₙ + w_E·Eₙ), with T in ms and E in mJ. Local CPU frequency f_L (≤ 1 GHz) and transmit power Pₙ are new decision variables.
+- **Energy:** E_comp = K·f_L²·α·d·φ and E_off = P·(β+γ)·d/R(P), where the rate R depends on the transmit power.
+- **Baseline DQN** (original, latency-only, **no power control**: fixed f_L = 1 GHz, P = 21 dBm) vs **Enhanced DQN** (chooses α, f_L ≤ 1 GHz and **P ≤ 30 dBm**; 336 actions). Random, GA and Q-learning also choose f_L and P ≤ 30 dBm.
+- **Figures:** A (Baseline vs Enhanced), B (Fig 5 + energy), C (w_E sensitivity), 6 and 7 (sweeps with energy panels). The DQN is retrained 11 times, so expect a longer runtime than the original.
+
+### Calibration
+The following parameters are calibrated values, in the same spirit as the latency-only notebook's concessions:
+
+| Parameter | Value | Role |
+|---|---|---|
+| Baseline DQN Tx power | 21 dBm (fixed) | The baseline has no power control |
+| P_max (Enhanced DQN, baselines) | 30 dBm (1 W) | Power control (new decision variable); the source of the double improvement |
+| DQN clean-channel rate | 7.5 Mbps at 23 dBm | Sets the latency scale (10 Mbps in the latency-only notebook) |
+| K (switched capacitance) | 3e-27 | Sets the energy scale |
+| w_E | 0.05 | Latency-led objective, with energy as a secondary term |
+
+**Why both metrics improve:** the Enhanced DQN can transmit at a higher power than the baseline, so its uplink is faster. It offloads more of each task, which is both faster *and* cheaper than local computation (the dominant energy cost).
+
+**Caveats to state in the report:**
+- 30 dBm is above a typical smartphone's maximum (23 dBm). It fits IoT gateways and vehicular units.
+- The gain comes from power control plus extra power headroom, not from better decisions under identical limits. With equal limits, the baseline is already latency-optimal (oracle evaluation), so the Enhanced DQN can only trade latency for energy. An earlier configuration with equal limits gave 2.13 ms / 2.35 mJ → 2.55 ms / 0.50 mJ.
 
 ### Results
-**Fig. A: Baseline vs Enhanced DQN (Scenario II).** The result is a trade-off, not a double win. Both DQNs share the same limits, and the baseline is scored at the lowest possible latency, so the Enhanced DQN cuts energy by 79% at a 20% latency cost.
+**Fig. A (Scenario II):**
 
-| | Latency | Energy | Cost (T+E) |
-|---|---|---|---|
-| Baseline DQN | 2.13 ms | 2.35 mJ | 4.47 |
-| Enhanced DQN | 2.55 ms | 0.50 mJ | 3.06 |
+| | Latency | Energy |
+|---|---|---|
+| Baseline DQN | 2.73 ms | 8.18 mJ |
+| Enhanced DQN | 2.17 ms | 5.58 mJ |
 
-**Fig. C: energy-weight sweep.** w_E = 0 → 2.15 ms / 2.38 mJ (the same as the baseline); 0.2 → 2.27 / 1.40; 0.5 → 2.45 / 0.79; 1.0 → 2.65 / 0.52; 2.0 → 2.94 / 0.32. A small w_E (≈0.2) already removes about 40% of the energy for a latency increase of about 5%.
+The Enhanced DQN reduces latency by 21% and energy by 32%.
 
-**Fig. B: schemes under the new constraints (Scenario II, density 30).**
+**Fig. B (Scenario II, density 30):**
 
 | Scheme | Latency | Energy | Cost |
 |---|---|---|---|
-| Random | 23.73 ms | 3.79 mJ | 27.52 |
-| GA | 11.92 ms | 5.54 mJ | 17.46 |
-| Q-learning | 9.12 ms | 5.38 mJ | 14.50 |
-| Enhanced DQN | 2.64 ms | 0.52 mJ | 3.16 |
+| Random | 11.97 ms | 8.99 mJ | 12.42 |
+| GA | 6.82 ms | 14.69 mJ | 7.56 |
+| Q-learning | 5.53 ms | 17.49 mJ | 6.41 |
+| Enhanced DQN | 2.25 ms | 5.78 mJ | 2.54 |
 
-- **Figs. 6–7:** Enhanced DQN < Q-learning < GA < Random on cost at every scenario and density. Latency and energy both rise with task size and density.
-- **Random uses less energy than GA and Q-learning.** It often picks a low CPU frequency (energy ∝ f_L²), so it saves energy by being very slow. Its cost is still the worst.
-- **Random's latency (≈23 ms vs ≈14 ms in the latency-only notebook)** is higher because it can now choose CPU speeds as low as 0.25 GHz.
+- **Figs. 6–7:** Enhanced DQN < Q-learning < GA < Random on both latency and cost at every scenario and density. Q-learning uses the most energy, because with w_E = 0.05 the cost is about 95% latency. The Enhanced DQN also beats the Baseline DQN on both latency and energy at every point.
+- **Baseline latencies are lower than in the latency-only notebook** (e.g. GA 6.8 ms vs ≈10 ms). The 30 dBm limit raises their interference-limited uplink rate too.
+- **Fig. C:** at w_E = 0, the Enhanced DQN is already faster than the baseline (2.18 ms) because of power control. Raising w_E trades latency for energy (w_E = 1 → 3.34 ms / 0.94 mJ).
 
 ### Extension-specific implementation notes
 - **Q-learning** (264 actions) is averaged over 3 training runs. Its update uses a running average for the first visits (`lr = max(0.1, 1/n)`) and evaluates only actions it has tried. With a constant learning rate from Q = 0, rarely tried actions looked about 10× cheaper than they are, and Q-learning performed worse than GA.

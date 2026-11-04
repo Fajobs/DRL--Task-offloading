@@ -79,6 +79,15 @@ More fundamentally, the paper's results show a **5x gap between DQN (~2ms) and G
 - Ordering DQN < QL < GA < Random maintained
 - ~15% optimization by DQN across densities
 
+## Energy-Aware Extension (`drl_task_offloading_energy.ipynb`)
+A copy of the main notebook that implements the supervisor's whiteboard model (`paper/Board_Equations_New.docx`). The original notebook and its results are unchanged.
+
+- **Objective:** minimise Σ (Tₙ + w_E·Eₙ), with w_E = 1 (T in ms, E in mJ). Local CPU frequency f_L (≤ 1 GHz) and transmit power Pₙ (≤ 23 dBm) are new decision variables.
+- **Energy:** E_comp = K·f_L²·α·d·φ (K = 1e-27) and E_off = P·(β+γ)·d/R(P), where the rate R depends on the transmit power.
+- **Baseline DQN** (original, latency-only) vs **Enhanced DQN** (chooses α, f_L and P; 336 actions). Random, GA and Q-learning also choose f_L and P.
+- **Result is a trade-off, not a double win.** Both DQNs share the same limits, and the baseline is scored at the lowest possible latency, so the Enhanced DQN cuts energy sharply (≈2.3 → ≈0.5 mJ) at a small latency cost (≈2.1 → ≈2.5 ms). Fig. C sweeps w_E to show the full latency–energy curve.
+- **Figures:** A (Baseline vs Enhanced), B (Fig 5 + energy), C (w_E trade-off), 6 and 7 (sweeps with energy panels). The DQN is retrained 11 times, so expect a longer runtime than the original.
+
 ## Running the Notebook
 Requirements: `numpy`, `torch`, `matplotlib`
 

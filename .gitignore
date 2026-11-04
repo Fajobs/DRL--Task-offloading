@@ -4,3 +4,5 @@
 .junie
 __pycache__
 .venv/
+.claude
+CLAUDE.md

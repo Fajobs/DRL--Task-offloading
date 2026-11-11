@@ -82,10 +82,29 @@ More fundamentally, the paper's results show a **5x gap between DQN (~2ms) and G
 ## Energy-Aware Extension (`drl_task_offloading_energy.ipynb`)
 A copy of the main notebook that implements the energy-aware model (`paper/Board_Equations_New.docx`). The original notebook and its results are unchanged.
 
-- **Objective:** minimise Σ (Tₙ + w_E·Eₙ), with T in ms and E in mJ. Local CPU frequency f_L (≤ 1 GHz) and transmit power Pₙ are new decision variables.
+- **Objective:** minimise Σ (Tₙ + w_E·Eₙ), with T in seconds and E in joules. Decision variables: partition ratios α, β, γ, local CPU frequency f_L (≤ 1 GHz) and transmit power Pₙ.
 - **Energy:** E_comp = K·f_L²·α·d·φ and E_off = P·(β+γ)·d/R(P), where the rate R depends on the transmit power.
-- **Baseline DQN** (original, latency-only, **no power control**: fixed f_L = 1 GHz, P = 21 dBm) vs **Enhanced DQN** (chooses α, f_L ≤ 1 GHz and **P ≤ 30 dBm**; 336 actions). Random, GA and Q-learning also choose f_L and P ≤ 30 dBm.
-- **Figures:** A (Baseline vs Enhanced), B (Fig 5 + energy), C (w_E sensitivity), 6 and 7 (sweeps with energy panels). The DQN is retrained 11 times, so expect a longer runtime than the original.
+- **Baseline DQN:** latency-only, with **no power control** (fixed f_L = 1 GHz, P = 21 dBm). It chooses α and β (231 actions).
+- **Energy-Efficient DQN:** chooses α, β, f_L ≤ 1 GHz and **P ≤ 30 dBm** (3,696 actions) and minimises latency + w_E·energy.
+- **Random, GA and Q-learning** also work under the energy-aware formulation: they choose f_L and P ≤ 30 dBm under the same limits.
+- **Figures:** A (Baseline vs Energy-Efficient DQN), B (partitioning ratios, Scenario II), C (all schemes: latency + energy), D (w_E sensitivity), 6 (vs scenario), E (partitioning ratios per scenario), 7 (vs density).
+
+### Realistic task sizes
+The paper's task sizes (≤ 4 MB) are replaced with realistic sizes for each task type, spread over the four scenarios:
+
+| Scenario | Text | Image | Audio | Video |
+|---|---|---|---|---|
+| I | 256 KB | 20 KB | 15 MB | 150 MB |
+| II | 512 KB | 1 MB | 17.5 MB | 300 MB |
+| III | 768 KB | 2.5 MB | 20 MB | 500 MB |
+| IV | 1 MB | 5 MB | 22 MB | 1 GB |
+
+Sizes are converted to bits directly (1 MB = 8×10⁶ bits); the latency-only notebook's `SCALE = 2.7` multiplier is not used. Video dominates the averages, so latencies are tens to hundreds of seconds and energies tens to hundreds of joules.
+
+### Model details
+- **Shared cloud:** each device gets c_n^C = C_C / N of the cloud's capacity (2 GHz for N = 50; scaled with density in Fig. 7). With an unshared 100 GHz cloud, the edge node is never worth using (β = 0).
+- **Fixed evaluation set:** every scheme is evaluated on the same tasks for a given system, with equal counts of each task type. Without this, the number of 300 MB–1 GB videos drawn would dominate each average and make comparisons noisy.
+- **DQN state and reward:** the task-size feature is on a log scale (sizes span 20 KB to 1 GB). The training reward is the cost per Mbit. Each decision only affects its own task, so this does not change the best action, and it keeps the reward scale bounded.
 
 ### Calibration
 The following parameters are calibrated values, in the same spirit as the latency-only notebook's concessions:
@@ -93,43 +112,53 @@ The following parameters are calibrated values, in the same spirit as the latenc
 | Parameter | Value | Role |
 |---|---|---|
 | Baseline DQN Tx power | 21 dBm (fixed) | The baseline has no power control |
-| P_max (Enhanced DQN, baselines) | 30 dBm (1 W) | Power control (new decision variable); the source of the double improvement |
-| DQN clean-channel rate | 7.5 Mbps at 23 dBm | Sets the latency scale (10 Mbps in the latency-only notebook) |
-| K (switched capacitance) | 3e-27 | Sets the energy scale |
+| P_max (energy-aware schemes) | 30 dBm (1 W) | Power control (new decision variable); the source of the double improvement |
+| DQN clean-channel rate | 7.5 Mbps at 23 dBm | DQN channel quality (10 Mbps in the latency-only notebook) |
+| K (switched capacitance) | 3e-27 | Local computation energy |
 | w_E | 0.05 | Latency-led objective, with energy as a secondary term |
 
-**Why both metrics improve:** the Enhanced DQN can transmit at a higher power than the baseline, so its uplink is faster. It offloads more of each task, which is both faster *and* cheaper than local computation (the dominant energy cost).
+**Why both metrics improve:** the Energy-Efficient DQN can transmit at a higher power than the baseline, so its uplink is faster. It moves work from the device to the edge and cloud, which is both faster *and* cheaper than local computation (the dominant energy cost).
 
 **Caveats to state in the report:**
 - 30 dBm is above a typical smartphone's maximum (23 dBm). It fits IoT gateways and vehicular units.
-- The gain comes from power control plus extra power headroom, not from better decisions under identical limits. With equal limits, the baseline is already latency-optimal (oracle evaluation), so the Enhanced DQN can only trade latency for energy. An earlier configuration with equal limits gave 2.13 ms / 2.35 mJ → 2.55 ms / 0.50 mJ.
+- The gain comes from power control plus extra power headroom, not from better decisions under identical limits. With equal limits, the baseline is already latency-optimal (oracle evaluation), so the Energy-Efficient DQN could only trade latency for energy.
 
 ### Results
+DQN values are deterministic (fixed evaluation set and oracle evaluation). Random, GA and Q-learning values vary slightly between runs.
+
 **Fig. A (Scenario II):**
 
 | | Latency | Energy |
 |---|---|---|
-| Baseline DQN | 2.73 ms | 8.18 mJ |
-| Enhanced DQN | 2.17 ms | 5.58 mJ |
+| Baseline DQN | 81.67 s | 241.51 J |
+| Energy-Efficient DQN | 72.60 s | 222.10 J |
 
-The Enhanced DQN reduces latency by 21% and energy by 32%.
+The Energy-Efficient DQN reduces latency by 11% and energy by 8%.
 
-**Fig. B (Scenario II, density 30):**
+**Fig. B (partitioning ratios, Scenario II):**
+
+| | α (local) | β (edge) | γ (cloud) |
+|---|---|---|---|
+| Baseline DQN | 0.44 | 0.26 | 0.29 |
+| Energy-Efficient DQN | 0.38 | 0.31 | 0.31 |
+
+**Fig. C (Scenario II, density 30, approximate for the non-DQN schemes):**
 
 | Scheme | Latency | Energy | Cost |
 |---|---|---|---|
-| Random | 11.97 ms | 8.99 mJ | 12.42 |
-| GA | 6.82 ms | 14.69 mJ | 7.56 |
-| Q-learning | 5.53 ms | 17.49 mJ | 6.41 |
-| Enhanced DQN | 2.25 ms | 5.78 mJ | 2.54 |
+| Random | ≈293 s | ≈205 J | ≈303 |
+| GA | ≈176 s | ≈343 J | ≈193 |
+| Q-learning | ≈135 s | ≈387 J | ≈154 |
+| Baseline DQN | 81.67 s | 241.51 J | 93.75 |
+| Energy-Efficient DQN | 72.60 s | 222.10 J | 83.71 |
 
-- **Figs. 6–7:** Enhanced DQN < Q-learning < GA < Random on both latency and cost at every scenario and density. Q-learning uses the most energy, because with w_E = 0.05 the cost is about 95% latency. The Enhanced DQN also beats the Baseline DQN on both latency and energy at every point.
-- **Baseline latencies are lower than in the latency-only notebook** (e.g. GA 6.8 ms vs ≈10 ms). The 30 dBm limit raises their interference-limited uplink rate too.
-- **Fig. C:** at w_E = 0, the Enhanced DQN is already faster than the baseline (2.18 ms) because of power control. Raising w_E trades latency for energy (w_E = 1 → 3.34 ms / 0.94 mJ).
+- **Figs. 6–7:** Energy-Efficient DQN < Baseline DQN < Q-learning < GA < Random on latency and cost at every scenario and density. Q-learning uses the most energy, because with w_E = 0.05 the cost is about 95% latency.
+- **Fig. D:** raising w_E trades latency for energy (w_E = 0 → 71.8 s / 243 J; w_E = 1 → 112.1 s / 22.6 J).
+- **Fig. E:** the partitioning ratios are the same in every scenario (α 0.38, β 0.31, γ 0.31). Every latency and energy term is proportional to the task size, so the best fractions do not depend on how large the tasks are.
 
 ### Extension-specific implementation notes
 - **Q-learning** (264 actions) is averaged over 3 training runs. Its update uses a running average for the first visits (`lr = max(0.1, 1/n)`) and evaluates only actions it has tried. With a constant learning rate from Q = 0, rarely tried actions looked about 10× cheaper than they are, and Q-learning performed worse than GA.
-- **Random and GA** pick f_L and P from the DQN's discrete levels (GA: the upper two levels). GA is evaluated on 500 tasks everywhere.
+- **Random and GA** pick f_L and P from the DQN's discrete levels (GA: the upper two levels, with β = 0).
 
 ## Running the Notebook
 Requirements: `numpy`, `torch`, `matplotlib`

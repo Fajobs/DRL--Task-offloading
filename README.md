@@ -246,7 +246,7 @@ The following parameters are calibrated values, in the same spirit as the replic
 | A | Baseline DQN vs Energy-Efficient DQN: latency and energy (Scenario II) |
 | B | Partitioning ratios α, β, γ: Baseline DQN vs Energy-Efficient DQN (Scenario II) |
 | C | All five schemes: latency and energy (Scenario II, density 30) |
-| D | Energy-Efficient DQN latency–energy trade-off vs w_E |
+| D | Energy-Efficient DQN latency–energy trade-off vs w_E. The Baseline DQN is a single reference point (it has no w_E); the shaded area marks results better than it on both latency and energy |
 | 6 | All schemes vs scenario: latency and energy |
 | E | Energy-Efficient DQN partitioning ratios per scenario |
 | 7 | All schemes vs density: latency and energy |
@@ -282,10 +282,20 @@ The Energy-Efficient DQN computes less on the device and sends more to the edge 
 | Baseline DQN | 81.67 s | 241.51 J | 93.75 |
 | Energy-Efficient DQN | 72.60 s | 222.10 J | 83.71 |
 
+**Why latencies are seconds here and milliseconds in the replication:**
+
+| Scenario II | Replication | Extension |
+|---|---|---|
+| DQN latency | 2.11 ms | 81.67 s (Baseline DQN) |
+| Average task size | ≈27.6 kbit (≈3.5 KB) | ≈638 Mbit (≈80 MB) |
+| Latency per Mbit | ≈76 ms | ≈128 ms |
+
+Every latency term is proportional to task size. The tasks are about 23,000× larger (realistic sizes, against the replication's bytes × 2.7 conversion; see concession 7), and that accounts for almost all of the ≈38,700× increase. The remaining ≈1.7× per bit comes from the shared cloud (2 GHz per device instead of 100 GHz) and the slower DQN channel (7.5 Mbps at 23 dBm, with the Baseline DQN at 21 dBm). Latency per Mbit is the fair basis for comparing the two notebooks.
+
 - **Random has the lowest energy in Fig. C** (208.6 J vs 222.1 J for the Energy-Efficient DQN). It often picks low CPU frequencies (energy ∝ f_L²), saving energy by being slow: its latency is about 4× higher and its cost is the worst.
 - **Q-learning uses the most energy**, because with w_E = 0.05 its objective is about 95% latency.
 - **Figs. 6–7:** Energy-Efficient DQN < Baseline DQN < Q-learning < GA < Random on latency and cost at every scenario and density. The Energy-Efficient DQN also has lower energy than the Baseline DQN at every point except density 45 (+0.7%).
-- **Fig. D:** raising w_E trades latency for energy (w_E = 0 → 71.8 s / 243 J; w_E = 1 → 112.1 s / 22.6 J).
+- **Fig. D:** raising w_E trades latency for energy (w_E = 0 → 71.8 s / 243 J; w_E = 1 → 112.1 s / 22.6 J). For w_E = 0.05–0.1 the Energy-Efficient DQN is better than the Baseline DQN (81.7 s / 241.5 J) on both latency and energy. At w_E ≤ 0.02 it is faster with about the same energy, and at w_E ≥ 0.2 it is slower but uses far less energy.
 - **Fig. E:** the partitioning ratios are the same in every scenario (α 0.38, β 0.31, γ 0.31). Every latency and energy term is proportional to the task size, so the best fractions do not depend on how large the tasks are. See [Limitations](#limitations-and-open-questions).
 
 ---

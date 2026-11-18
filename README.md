@@ -161,9 +161,9 @@ Latency is reported in seconds and energy in joules.
 | Scheme | Decides | Objective | Channel |
 |---|---|---|---|
 | **Baseline DQN** | α, β (231 actions); f_L = 1 GHz and P = 21 dBm fixed | Latency only | Clean DQN channel |
-| **Energy-Efficient DQN** | α, β, f_L, P (3,696 actions) | Latency + w_E·energy | Clean DQN channel |
-| Random | α, β uniform; f_L, P random from the 4 levels | — | With interference |
-| GA | α ∈ {0.4, 0.6, 0.8}, β = 0; f_L, P random from the upper 2 levels | — | With interference |
+| **Energy-Efficient DQN** | α, β, f_L, P (7,392 actions) | Latency + w_E·energy | Clean DQN channel |
+| Random | α, β uniform; f_L random from the 8 levels, P random from the 4 levels | — | With interference |
+| GA | α ∈ {0.4, 0.6, 0.8}, β = 0; f_L ∈ {0.75, 1.0} GHz, P random from the upper 2 levels | — | With interference |
 | Q-learning | α, β on a 0.1 grid; f_L, P ∈ {0.5, 1.0} × max (264 actions) | Latency + w_E·energy | With interference |
 
 Every scheme except the Baseline DQN works under the energy-aware formulation, with the same limits (f_L ≤ 1 GHz, P ≤ 30 dBm).
@@ -171,9 +171,9 @@ Every scheme except the Baseline DQN works under the energy-aware formulation, w
 ### Design decisions
 
 #### 1. CPU frequency and transmit power as discrete decisions
-**What:** f_L ∈ {0.25, 0.5, 0.75, 1.0} GHz and P ∈ {0.25, 0.5, 0.75, 1.0} × 30 dBm.
+**What:** f_L ∈ {0.125, 0.25, …, 1.0} GHz (8 levels, like the frequency steps of a mobile CPU's DVFS) and P ∈ {0.25, 0.5, 0.75, 1.0} × 30 dBm.
 
-**Why:** A DQN needs a discrete action set. Four levels each capture the trade-off (energy grows with f_L², and a higher P speeds the uplink but costs transmit energy) while keeping the oracle search fast. Q-learning uses only two levels of each, so its table stays small enough to learn in 10,000 steps.
+**Why:** A DQN needs a discrete action set. Local energy grows with f_L², so the frequency needs finer steps than the power: with only 4 frequency levels, a step from 0.75 to 1.0 GHz raised local energy by 78%. Tasks then switched levels in batches as conditions changed, and the energy curves (Fig. 7b) rose in steps. Eight levels let the agent run the CPU just fast enough for each task. Four power levels are enough because transmit power enters the energy linearly. Q-learning uses only two levels of each, so its table stays small enough to learn in 10,000 steps.
 
 #### 2. A shared cloud, and β as a decision
 **What:** Each device gets c_n^C = C^C / N of the cloud (2 GHz for N = 50). Both DQNs choose β, unlike concession 6 of the replication.
@@ -212,13 +212,18 @@ Every scheme except the Baseline DQN works under the energy-aware formulation, w
 
 **Why:** A 100 MB video is 30–200× larger than the other task types, so a mean over randomly drawn tasks depends heavily on how many videos were drawn. With separate draws per scheme, this noise was large enough to reverse orderings between schemes. A shared, balanced set makes every comparison like for like and makes the DQN results exactly reproducible.
 
+#### 5b. Fixed random draws for the baselines
+**What:** Random, GA and Q-learning draw their random decisions from fixed-seed generators (Q-learning run r uses seed 42 + r), so each makes the same random choices at every scenario and density.
+
+**Why:** With fresh draws at each point, re-running Random at density 30 alone gave anywhere from 84 to 106 J. That spread was larger than the effect of density, so the energy curves in Fig. 7 zigzagged. With the same draws at every point (common random numbers), differences between points come from the system, and every result is reproducible.
+
 #### 6. DQN state and training reward
 **What:** The task-size input is on a log scale. The training reward is normalised: the best achievable cost for the task divided by the achieved cost, in (0, 1]. The DQN uses a one-step target (discount factor 0, `gamma=0.0` in `DQNAgent`) and ε decays by 0.999 per learning step.
 
 **Why:** Sizes span 256 KB to 1 GB, so a linear size feature would be near zero for everything except video. Each decision only affects its own task, so dividing by the per-task optimum does not change the best action. It also removes the task-to-task spread (size, cycles per bit, channel), which made the raw reward curve jagged. Tasks arrive independently, so the next state carries no information about future rewards. Bootstrapping on max Q(s′) with a 0.95 discount only added noise, and the Energy-Efficient DQN stalled at about 55% of the optimum. With the one-step target, the reward rises over the first 35–40 epochs and then stays flat at about 0.92 (Energy-Efficient) and 0.95 (Baseline), varying by about ±0.015 from epoch to epoch.
 
 #### 7. Oracle evaluation carries over
-**What:** Both DQNs are evaluated by searching their whole action set (231 or 3,696 actions) for each task, as in concession 2 of the replication. The search is vectorised.
+**What:** Both DQNs are evaluated by searching their whole action set (231 or 7,392 actions) for each task, as in concession 2 of the replication. The search is vectorised.
 
 **Why:** The same reason as in the replication: in 10,000 steps the trained networks converge to about 92–95% of the optimal cost, not to the optimum, with this many actions. The training curves (Figs 3–4) use the trained networks.
 
@@ -262,9 +267,9 @@ The following parameters are calibrated values, in the same spirit as the replic
 | 7 | All schemes vs density: latency and energy |
 
 ### Results
-DQN values are deterministic (fixed evaluation set and oracle evaluation). Random, GA and Q-learning values vary slightly between runs.
+All values are deterministic: the evaluation set is fixed, the DQNs use oracle evaluation, and the baselines use fixed-seed random draws.
 
-**Figs. 3–4 (training):** the loss of both DQNs drops within about 100 steps and stays near zero. The normalised reward rises from about 0.55 to a plateau of about 0.95 (Baseline DQN, by epoch 35) and about 0.92 (Energy-Efficient DQN, by epoch 40), and stays flat for the rest of training. The Energy-Efficient DQN levels off a little lower because it chooses among 3,696 actions instead of 231.
+**Figs. 3–4 (training):** the loss of both DQNs drops within about 100 steps and stays near zero. The normalised reward rises from about 0.55 to a plateau of about 0.95 (Baseline DQN, by epoch 35) and about 0.92 (Energy-Efficient DQN, by epoch 40), and stays flat for the rest of training. The Energy-Efficient DQN levels off a little lower because it chooses among 7,392 actions instead of 231.
 
 **Fig. A (Scenario II):**
 
@@ -328,6 +333,6 @@ Every latency term grows with task size. The tasks are about 7,900× larger (rea
 
 **Energy-aware extension:** run `drl_task_offloading_energy.ipynb` top to bottom. It trains 12 DQNs (2 for Figs. A–D, 4 for Fig. 6, 6 for Fig. 7), so it takes noticeably longer than the replication. It has been run in Google Colab: upload the notebook and use Runtime → Run all; no extra installs are needed, and a GPU runtime is used automatically if available.
 
-**Reproducibility:** both notebooks seed NumPy, Python and PyTorch with 42 in the first cell, so run them top to bottom in a fresh kernel. In the extension, the DQN results reproduce exactly; Random, GA and Q-learning vary slightly between runs.
+**Reproducibility:** both notebooks seed NumPy, Python and PyTorch with 42 in the first cell, so run them top to bottom in a fresh kernel. In the extension, every reported latency, energy and split value reproduces exactly (the training curves can differ slightly on a GPU).
 
 **Headless execution:** `jupyter nbconvert --to notebook --execute <notebook>` (install `nbconvert` first).

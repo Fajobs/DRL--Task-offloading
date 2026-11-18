@@ -7,7 +7,7 @@ This repository has two parts:
 | `drl_task_offloading.ipynb` | **Replication.** Reproduces Figures 3–7 of the paper below (latency-only DQN vs Q-learning, GA and Random). Its results are fixed and are not modified by the extension. |
 | `drl_task_offloading_energy.ipynb` | **Energy-aware extension.** Adds device energy to the objective, makes CPU frequency and transmit power decision variables, uses realistic task sizes, and compares a latency-only **Baseline DQN** with an **Energy-Efficient DQN** and energy-aware baselines. |
 
-`paper/` holds the paper PDF, the energy-model specification (`Board_Equations_New.docx`) and the revision notes for the extension (`Adjustments, Corrections and expected new and improved results.docx`).
+`paper/` holds the paper PDF.
 
 **Contents:** [Paper](#paper) · [System model](#system-model) · [Part 1: Replication](#part-1-replication) · [Part 2: Energy-aware extension](#part-2-energy-aware-extension) · [Limitations and open questions](#limitations-and-open-questions) · [Running the notebooks](#running-the-notebooks)
 
@@ -35,7 +35,7 @@ Both notebooks share the same network and latency model.
 | EN CPU c^E | 20 GHz, shared by the L_m devices on that EN |
 | Cloud CPU C^C | 100 GHz |
 | EN–cloud wired link c | 1 Gbps |
-| Cycles per bit φ | Uniform 100–500 per task |
+| Cycles per bit φ | Uniform 100–500 per task (the extension uses a range per task type; see design decision 3b) |
 
 ### Latency
 A task of d bits is split into a local share α, an edge share β and a cloud share γ (α + β + γ = 1). The three parts run in parallel, and the task finishes when the slowest one does:
@@ -152,7 +152,7 @@ subject to α + β + γ = 1, 0 ≤ α, β, γ ≤ 1, Σₘ xₙ,ₘ ≤ 1, xₙ,
 - **Local computation energy:** E_comp = K·f_L²·α·d·φ
 - **Offloading energy:** E_off = P·t_comm = P·(β + γ)·d / R(P)
 - **Total:** E = E_comp + E_off
-- **Latency:** T as in the [system model](#latency), with the cloud shared between devices (c_n^C = C^C / N)
+- **Latency:** T as in the [system model](#latency), with the cloud shared between devices (c_n^C = C^C / N) and a fixed delay τ^C = 0.5 s added to t_C whenever γ > 0
 
 Latency is reported in seconds and energy in joules.
 
@@ -181,16 +181,26 @@ Every scheme except the Baseline DQN works under the energy-aware formulation, w
 **Why:** The model's cloud term uses a per-device capacity c_n^C. With the cloud shared, an EN (20 GHz over ~10 devices) is competitive with the device's cloud share, so splitting work three ways is genuinely better than local + cloud alone. With an unshared cloud, the DQN still picks β = 0 even when allowed to choose it, and the partitioning charts would show no edge use.
 
 #### 3. Realistic task sizes
-**What:** The scenario table uses realistic sizes, converted to bits directly (1 MB = 8×10⁶ bits), without the replication's `SCALE`:
+**What:** The scenario table uses realistic sizes, converted to bits directly (1 KB = 1024 bytes = 8,192 bits), without the replication's `SCALE`:
 
 | Scenario | Text | Image | Audio | Video |
 |---|---|---|---|---|
-| I | 256 KB | 20 KB | 15 MB | 150 MB |
-| II | 512 KB | 1 MB | 17.5 MB | 300 MB |
-| III | 768 KB | 2.5 MB | 20 MB | 500 MB |
-| IV | 1 MB | 5 MB | 22 MB | 1 GB |
+| I | 256 KB | 512 KB | 1024 KB | 20 MB |
+| II | 512 KB | 1024 KB | 3072 KB | 100 MB |
+| III | 768 KB | 2048 KB | 5120 KB | 500 MB |
+| IV | 1024 KB | 4096 KB | 7168 KB | 1 GB |
 
-**Why:** Typical text files are hundreds of KB, images up to a few MB, audio tracks 15–22 MB and videos hundreds of MB to 1 GB. Each scenario spreads each type's range evenly. Video dominates every average, which is why latencies are tens to hundreds of seconds.
+**Why:** Typical text files are hundreds of KB, images up to a few MB, compressed audio clips a few MB, and videos tens of MB to 1 GB. Video dominates every average, which is why latencies are seconds to hundreds of seconds.
+
+#### 3b. Computation intensity per task type
+**What:** The cycles per bit φ depend on the task type: Text 100–200, Image 200–350, Audio 250–400, Video 350–500 (uniform within each range).
+
+**Why:** Parsing text is light work per bit, while decoding and analysing audio and video is heavy. Compute-heavy tasks gain more from the edge and cloud, so the best split differs between task types.
+
+#### 3c. Fixed cloud delay
+**What:** Every task that sends any share to the cloud (γ > 0) pays a fixed τ^C = 0.5 s for the WAN round trip and cloud job set-up, independent of task size.
+
+**Why:** Without a size-independent term, every latency and energy term is proportional to the task size d, so d cancels out of the optimisation and the best split is identical in every scenario. With τ^C, using the cloud is not worth it for small tasks, while for large tasks it is negligible next to the transfer and compute time. The cloud share therefore grows from Scenario I to IV (Fig. E).
 
 #### 4. Weighted objective
 **What:** cost = T[s] + w_E·E[J], with w_E = 0.05.
@@ -200,17 +210,17 @@ Every scheme except the Baseline DQN works under the energy-aware formulation, w
 #### 5. Fixed evaluation set
 **What:** For a given system, every scheme is evaluated on the same 500 tasks, with equal counts of each task type, drawn from a dedicated random generator.
 
-**Why:** A 300 MB video is 20–300× larger than the other task types, so a mean over randomly drawn tasks depends heavily on how many videos were drawn. With separate draws per scheme, this noise was large enough to reverse orderings between schemes. A shared, balanced set makes every comparison like for like and makes the DQN results exactly reproducible.
+**Why:** A 100 MB video is 30–200× larger than the other task types, so a mean over randomly drawn tasks depends heavily on how many videos were drawn. With separate draws per scheme, this noise was large enough to reverse orderings between schemes. A shared, balanced set makes every comparison like for like and makes the DQN results exactly reproducible.
 
 #### 6. DQN state and training reward
-**What:** The task-size input is on a log scale, and the training reward is the cost per Mbit.
+**What:** The task-size input is on a log scale. The training reward is normalised: the best achievable cost for the task divided by the achieved cost, in (0, 1]. The DQN uses a one-step target (discount factor 0, `gamma=0.0` in `DQNAgent`) and ε decays by 0.999 per learning step.
 
-**Why:** Sizes span 20 KB to 1 GB, so a linear size feature would be near zero for everything except video. Each decision only affects its own task, so dividing the reward by the task size does not change the best action, but it stops 1 GB tasks from dominating the training signal.
+**Why:** Sizes span 256 KB to 1 GB, so a linear size feature would be near zero for everything except video. Each decision only affects its own task, so dividing by the per-task optimum does not change the best action. It also removes the task-to-task spread (size, cycles per bit, channel), which made the raw reward curve jagged. Tasks arrive independently, so the next state carries no information about future rewards. Bootstrapping on max Q(s′) with a 0.95 discount only added noise, and the Energy-Efficient DQN stalled at about 55% of the optimum. With the one-step target, the reward rises over the first 35–40 epochs and then stays flat at about 0.92 (Energy-Efficient) and 0.95 (Baseline), varying by about ±0.015 from epoch to epoch.
 
 #### 7. Oracle evaluation carries over
 **What:** Both DQNs are evaluated by searching their whole action set (231 or 3,696 actions) for each task, as in concession 2 of the replication. The search is vectorised.
 
-**Why:** The same reason as in the replication: the trained networks do not fully converge in 10,000 steps with this many actions. The training curves (Figs 3–4) use the trained networks.
+**Why:** The same reason as in the replication: in 10,000 steps the trained networks converge to about 92–95% of the optimal cost, not to the optimum, with this many actions. The training curves (Figs 3–4) use the trained networks.
 
 #### 8. Q-learning fixes
 **What:** Q-learning is averaged over 3 training runs. Its update uses a running average for the first visits (`lr = max(0.1, 1/n)`), and it evaluates only actions it has tried.
@@ -254,21 +264,23 @@ The following parameters are calibrated values, in the same spirit as the replic
 ### Results
 DQN values are deterministic (fixed evaluation set and oracle evaluation). Random, GA and Q-learning values vary slightly between runs.
 
+**Figs. 3–4 (training):** the loss of both DQNs drops within about 100 steps and stays near zero. The normalised reward rises from about 0.55 to a plateau of about 0.95 (Baseline DQN, by epoch 35) and about 0.92 (Energy-Efficient DQN, by epoch 40), and stays flat for the rest of training. The Energy-Efficient DQN levels off a little lower because it chooses among 3,696 actions instead of 231.
+
 **Fig. A (Scenario II):**
 
 | | Latency | Energy |
 |---|---|---|
-| Baseline DQN | 81.67 s | 241.51 J |
-| Energy-Efficient DQN | 72.60 s | 222.10 J |
+| Baseline DQN | 35.83 s | 105.79 J |
+| Energy-Efficient DQN | 31.64 s | 100.30 J |
 
-The Energy-Efficient DQN reduces latency by 11% and energy by 8%.
+The Energy-Efficient DQN reduces latency by 12% and energy by 5%.
 
 **Fig. B (partitioning ratios, Scenario II):**
 
 | | α (local) | β (edge) | γ (cloud) |
 |---|---|---|---|
-| Baseline DQN | 0.44 | 0.26 | 0.29 |
-| Energy-Efficient DQN | 0.38 | 0.31 | 0.31 |
+| Baseline DQN | 0.48 | 0.37 | 0.16 |
+| Energy-Efficient DQN | 0.42 | 0.41 | 0.17 |
 
 The Energy-Efficient DQN computes less on the device and sends more to the edge and cloud, because local computation is the dominant energy cost.
 
@@ -276,36 +288,36 @@ The Energy-Efficient DQN computes less on the device and sends more to the edge 
 
 | Scheme | Latency | Energy | Cost |
 |---|---|---|---|
-| Random | 288.16 s | 208.55 J | 298.58 |
-| GA | 169.28 s | 326.11 J | 185.58 |
-| Q-learning | 130.69 s | 407.08 J | 151.04 |
-| Baseline DQN | 81.67 s | 241.51 J | 93.75 |
-| Energy-Efficient DQN | 72.60 s | 222.10 J | 83.71 |
+| Random | 125.24 s | 97.21 J | 130.10 |
+| GA | 75.67 s | 149.69 J | 83.15 |
+| Q-learning | 53.40 s | 174.60 J | 62.13 |
+| Baseline DQN | 35.83 s | 105.79 J | 41.12 |
+| Energy-Efficient DQN | 31.64 s | 100.30 J | 36.66 |
 
 **Why latencies are seconds here and milliseconds in the replication:**
 
 | Scenario II | Replication | Extension |
 |---|---|---|
-| DQN latency | 2.11 ms | 81.67 s (Baseline DQN) |
-| Average task size | ≈27.6 kbit (≈3.5 KB) | ≈638 Mbit (≈80 MB) |
-| Latency per Mbit | ≈76 ms | ≈128 ms |
+| DQN latency | 2.11 ms | 35.83 s (Baseline DQN) |
+| Average task size | ≈27.6 kbit (≈3.5 KB) | ≈219 Mbit (≈26 MB) |
+| Latency per Mbit | ≈76 ms | ≈163 ms |
 
-Every latency term is proportional to task size. The tasks are about 23,000× larger (realistic sizes, against the replication's bytes × 2.7 conversion; see concession 7), and that accounts for almost all of the ≈38,700× increase. The remaining ≈1.7× per bit comes from the shared cloud (2 GHz per device instead of 100 GHz) and the slower DQN channel (7.5 Mbps at 23 dBm, with the Baseline DQN at 21 dBm). Latency per Mbit is the fair basis for comparing the two notebooks.
+Every latency term grows with task size. The tasks are about 7,900× larger (realistic sizes, against the replication's bytes × 2.7 conversion; see concession 7), and that accounts for most of the ≈17,000× increase. The remaining ≈2.1× per bit comes from the shared cloud (2 GHz per device instead of 100 GHz), the slower DQN channel (7.5 Mbps at 23 dBm, with the Baseline DQN at 21 dBm) and video's higher cycles per bit, which dominate the average. Latency per Mbit is the fair basis for comparing the two notebooks.
 
-- **Random has the lowest energy in Fig. C** (208.6 J vs 222.1 J for the Energy-Efficient DQN). It often picks low CPU frequencies (energy ∝ f_L²), saving energy by being slow: its latency is about 4× higher and its cost is the worst.
+- **Random has the lowest energy in Fig. C** (97.2 J vs 100.3 J for the Energy-Efficient DQN). It often picks low CPU frequencies (energy ∝ f_L²), saving energy by being slow: its latency is about 4× higher and its cost is the worst.
 - **Q-learning uses the most energy**, because with w_E = 0.05 its objective is about 95% latency.
-- **Figs. 6–7:** Energy-Efficient DQN < Baseline DQN < Q-learning < GA < Random on latency and cost at every scenario and density. The Energy-Efficient DQN also has lower energy than the Baseline DQN at every point except density 45 (+0.7%).
-- **Fig. D:** raising w_E trades latency for energy (w_E = 0 → 71.8 s / 243 J; w_E = 1 → 112.1 s / 22.6 J). For w_E = 0.05–0.1 the Energy-Efficient DQN is better than the Baseline DQN (81.7 s / 241.5 J) on both latency and energy. At w_E ≤ 0.02 it is faster with about the same energy, and at w_E ≥ 0.2 it is slower but uses far less energy.
-- **Fig. E:** the partitioning ratios are the same in every scenario (α 0.38, β 0.31, γ 0.31). Every latency and energy term is proportional to the task size, so the best fractions do not depend on how large the tasks are. See [Limitations](#limitations-and-open-questions).
+- **Figs. 6–7:** Energy-Efficient DQN < Baseline DQN < Q-learning < GA < Random on latency and cost at every scenario and density. The Energy-Efficient DQN also has lower energy than the Baseline DQN at every point.
+- **Fig. D:** raising w_E trades latency for energy (w_E = 0 → 31.5 s / 104.5 J; w_E = 1 → 46.5 s / 8.0 J). At w_E = 0.05 the Energy-Efficient DQN is better than the Baseline DQN (35.8 s / 105.8 J) on both latency and energy. At w_E ≤ 0.02 it is faster with about the same energy, and at w_E ≥ 0.1 it is slightly to moderately slower but uses far less energy (39.8 J at w_E = 0.1).
+- **Fig. E:** the cloud share grows with task size: γ = 0.11, 0.17, 0.20, 0.22 for Scenarios I–IV, while α falls (0.44 → 0.41) and β falls (0.45 → 0.37). Per task type, Text never uses the cloud (it is not worth the fixed 0.5 s delay). Image moves to the cloud as it grows (γ 0 → 0.25), and Video always uses it (γ ≈ 0.33). Text also has the highest local share (α 0.55, light computation), while Video has the lowest (α 0.32).
 
 ---
 
 ## Limitations and open questions
 - **Association is not optimised.** xₙ,ₘ appears in the objective, but both notebooks attach each device to its nearest EN. Optimising association would add a combinatorial decision on top of the per-task split.
 - **Interference does not react to transmit power.** The inter-EN interference is computed at the nominal 23 dBm. When devices choose higher or lower powers, their own rate changes but the interference they cause others does not.
-- **Partitioning ratios are size-invariant.** Because every latency and energy term is linear in task size, the best split does not change between scenarios (Fig. E). Size-dependent splits would need a term that does not scale with size, such as a fixed per-task connection set-up time or a per-device upload or storage limit.
-- **Channel gain.** The rate uses the path-loss power gain (equivalent to |h|²). The model specification writes |h|.
-- **One CPU frequency per decision.** f_L is chosen per task, so in effect per device and task. The specification does not index f_L by device.
+- **One fixed overhead.** The fixed cloud delay τ^C is the only term that does not scale with task size, so it alone drives the trend in Fig. E. Edge set-up time and per-device upload or storage limits are not modelled.
+- **Channel gain.** The rate uses the path-loss power gain (equivalent to |h|²). The energy model's rate equation writes |h|.
+- **One CPU frequency per decision.** f_L is chosen per task, so in effect per device and task. The energy model does not index f_L by device.
 - **Oracle evaluation.** Both DQNs report the best achievable decision in their action set, not the trained network's output (see design decision 7).
 - **Dual rate model.** The DQNs' clean channel (concession 1) carries over to the extension, so the gap between the DQNs and the other schemes partly reflects channel awareness, not only decision quality.
 

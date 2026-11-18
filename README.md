@@ -220,12 +220,12 @@ Every scheme except the Baseline DQN works under the energy-aware formulation, w
 #### 6. DQN state and training reward
 **What:** The task-size input is on a log scale. The training reward is normalised: the best achievable cost for the task divided by the achieved cost, in (0, 1]. The DQN uses a one-step target (discount factor 0, `gamma=0.0` in `DQNAgent`) and ε decays by 0.999 per learning step.
 
-**Why:** Sizes span 256 KB to 1 GB, so a linear size feature would be near zero for everything except video. Each decision only affects its own task, so dividing by the per-task optimum does not change the best action. It also removes the task-to-task spread (size, cycles per bit, channel), which made the raw reward curve jagged. Tasks arrive independently, so the next state carries no information about future rewards. Bootstrapping on max Q(s′) with a 0.95 discount only added noise, and the Energy-Efficient DQN stalled at about 55% of the optimum. With the one-step target, the reward rises over the first 35–40 epochs and then stays flat at about 0.92 (Energy-Efficient) and 0.95 (Baseline), varying by about ±0.015 from epoch to epoch.
+**Why:** Sizes span 256 KB to 1 GB, so a linear size feature would be near zero for everything except video. Each decision only affects its own task, so dividing by the per-task optimum does not change the best action. It also removes the task-to-task spread (size, cycles per bit, channel), which made the raw reward curve jagged. Tasks arrive independently, so the next state carries no information about future rewards. Bootstrapping on max Q(s′) with a 0.95 discount only added noise, and the Energy-Efficient DQN stalled at about 55% of the optimum. With the one-step target, the reward rises over the first 35–40 epochs and then stays flat at about 0.90 (Energy-Efficient) and 0.95 (Baseline), varying by about ±0.015 from epoch to epoch.
 
 #### 7. Oracle evaluation carries over
 **What:** Both DQNs are evaluated by searching their whole action set (231 or 7,392 actions) for each task, as in concession 2 of the replication. The search is vectorised.
 
-**Why:** The same reason as in the replication: in 10,000 steps the trained networks converge to about 92–95% of the optimal cost, not to the optimum, with this many actions. The training curves (Figs 3–4) use the trained networks.
+**Why:** The same reason as in the replication: in 10,000 steps the trained networks converge to about 90–95% of the optimal cost, not to the optimum, with this many actions. The training curves (Figs 3–4) use the trained networks.
 
 #### 8. Q-learning fixes
 **What:** Q-learning is averaged over 3 training runs. Its update uses a running average for the first visits (`lr = max(0.1, 1/n)`), and it evaluates only actions it has tried.
@@ -269,23 +269,23 @@ The following parameters are calibrated values, in the same spirit as the replic
 ### Results
 All values are deterministic: the evaluation set is fixed, the DQNs use oracle evaluation, and the baselines use fixed-seed random draws.
 
-**Figs. 3–4 (training):** the loss of both DQNs drops within about 100 steps and stays near zero. The normalised reward rises from about 0.55 to a plateau of about 0.95 (Baseline DQN, by epoch 35) and about 0.92 (Energy-Efficient DQN, by epoch 40), and stays flat for the rest of training. The Energy-Efficient DQN levels off a little lower because it chooses among 7,392 actions instead of 231.
+**Figs. 3–4 (training):** the loss of both DQNs drops within about 100 steps and stays near zero. The normalised reward rises from about 0.55 to a plateau of about 0.95 (Baseline DQN, by epoch 35) and about 0.90 (Energy-Efficient DQN, by epoch 40), and stays flat for the rest of training. The Energy-Efficient DQN levels off a little lower because it chooses among 7,392 actions instead of 231.
 
 **Fig. A (Scenario II):**
 
 | | Latency | Energy |
 |---|---|---|
 | Baseline DQN | 35.83 s | 105.79 J |
-| Energy-Efficient DQN | 31.64 s | 100.30 J |
+| Energy-Efficient DQN | 32.00 s | 85.87 J |
 
-The Energy-Efficient DQN reduces latency by 12% and energy by 5%.
+The Energy-Efficient DQN reduces latency by 11% and energy by 19%.
 
 **Fig. B (partitioning ratios, Scenario II):**
 
 | | α (local) | β (edge) | γ (cloud) |
 |---|---|---|---|
 | Baseline DQN | 0.48 | 0.37 | 0.16 |
-| Energy-Efficient DQN | 0.42 | 0.41 | 0.17 |
+| Energy-Efficient DQN | 0.41 | 0.41 | 0.18 |
 
 The Energy-Efficient DQN computes less on the device and sends more to the edge and cloud, because local computation is the dominant energy cost.
 
@@ -293,11 +293,11 @@ The Energy-Efficient DQN computes less on the device and sends more to the edge 
 
 | Scheme | Latency | Energy | Cost |
 |---|---|---|---|
-| Random | 125.24 s | 97.21 J | 130.10 |
-| GA | 75.67 s | 149.69 J | 83.15 |
-| Q-learning | 53.40 s | 174.60 J | 62.13 |
+| Random | 158.90 s | 77.85 J | 162.80 |
+| GA | 75.07 s | 150.11 J | 82.58 |
+| Q-learning | 53.18 s | 175.69 J | 61.97 |
 | Baseline DQN | 35.83 s | 105.79 J | 41.12 |
-| Energy-Efficient DQN | 31.64 s | 100.30 J | 36.66 |
+| Energy-Efficient DQN | 32.00 s | 85.87 J | 36.29 |
 
 **Why latencies are seconds here and milliseconds in the replication:**
 
@@ -309,11 +309,12 @@ The Energy-Efficient DQN computes less on the device and sends more to the edge 
 
 Every latency term grows with task size. The tasks are about 7,900× larger (realistic sizes, against the replication's bytes × 2.7 conversion; see concession 7), and that accounts for most of the ≈17,000× increase. The remaining ≈2.1× per bit comes from the shared cloud (2 GHz per device instead of 100 GHz), the slower DQN channel (7.5 Mbps at 23 dBm, with the Baseline DQN at 21 dBm) and video's higher cycles per bit, which dominate the average. Latency per Mbit is the fair basis for comparing the two notebooks.
 
-- **Random has the lowest energy in Fig. C** (97.2 J vs 100.3 J for the Energy-Efficient DQN). It often picks low CPU frequencies (energy ∝ f_L²), saving energy by being slow: its latency is about 4× higher and its cost is the worst.
+- **Random has the lowest energy in Fig. C** (77.9 J vs 85.9 J for the Energy-Efficient DQN), and it is below the Energy-Efficient DQN in every scenario of Fig. 6 and from density 30 onwards in Fig. 7. It often picks low CPU frequencies (energy ∝ f_L²), saving energy by being slow: its latency is about 5× higher and its cost is the worst.
 - **Q-learning uses the most energy**, because with w_E = 0.05 its objective is about 95% latency.
 - **Figs. 6–7:** Energy-Efficient DQN < Baseline DQN < Q-learning < GA < Random on latency and cost at every scenario and density. The Energy-Efficient DQN also has lower energy than the Baseline DQN at every point.
-- **Fig. D:** raising w_E trades latency for energy (w_E = 0 → 31.5 s / 104.5 J; w_E = 1 → 46.5 s / 8.0 J). At w_E = 0.05 the Energy-Efficient DQN is better than the Baseline DQN (35.8 s / 105.8 J) on both latency and energy. At w_E ≤ 0.02 it is faster with about the same energy, and at w_E ≥ 0.1 it is slightly to moderately slower but uses far less energy (39.8 J at w_E = 0.1).
-- **Fig. E:** the cloud share grows with task size: γ = 0.11, 0.17, 0.20, 0.22 for Scenarios I–IV, while α falls (0.44 → 0.41) and β falls (0.45 → 0.37). Per task type, Text never uses the cloud (it is not worth the fixed 0.5 s delay). Image moves to the cloud as it grows (γ 0 → 0.25), and Video always uses it (γ ≈ 0.33). Text also has the highest local share (α 0.55, light computation), while Video has the lowest (α 0.32).
+- **Fig. 7 (b):** energy rises steadily with density for every scheme. For the Energy-Efficient DQN (51 → 123 J), the more congested uplink makes it keep more video work on the device (α 0.20 → 0.42), and local computation is the main energy cost.
+- **Fig. D:** raising w_E trades latency for energy (w_E = 0 → 31.5 s / 102.4 J; w_E = 1 → 46.5 s / 8.0 J). At w_E = 0.05–0.1 the Energy-Efficient DQN is better than the Baseline DQN (35.8 s / 105.8 J) on both latency and energy (35.2 s / 45.6 J at w_E = 0.1). At w_E ≤ 0.02 it is faster and uses slightly less energy, and at w_E ≥ 0.2 it is slower but uses far less energy.
+- **Fig. E:** the cloud share grows with task size: γ = 0.12, 0.18, 0.21, 0.23 for Scenarios I–IV, while α falls (0.44 → 0.40) and β falls (0.45 → 0.37). Per task type, Text never uses the cloud (it is not worth the fixed 0.5 s delay). Image moves to the cloud as it grows (γ 0 → 0.26), and Video always uses it (γ ≈ 0.35). Text also has the highest local share (α 0.55, light computation), while Video has the lowest (α 0.30).
 
 ---
 
